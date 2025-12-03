@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雙人撞球比賽計分器</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --panel-bg: #2d2d2d;
+            --accent-green: #27ae60;
+            --accent-red: #c0392b;
+            --text-main: #ffffff;
+            --text-dim: #aaaaaa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 3px solid var(--accent-green);
+            padding-bottom: 5px;
+            text-align: center;
+        }
+
+        /* Scoreboard Container */
+        .scoreboard {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            max-width: 800px;
+            gap: 20px;
+        }
+
+        /* Player Panel */
+        .player-card {
+            background-color: var(--panel-bg);
+            border-radius: 15px;
+            padding: 20px;
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            border: 2px solid transparent;
+            transition: border 0.3s, transform 0.2s;
+            position: relative;
+        }
+
+        /* 各玩家的強調色 */
+        #p1-card:focus-within { border-color: var(--accent-green); }
+        #p2-card:focus-within { border-color: var(--accent-red); }
+
+        /* Name Input */
+        input.player-name {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #555;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            text-align: center;
+            width: 90%;
+            margin-bottom: 15px;
+            outline: none;
+            padding: 5px;
+            font-weight: bold;
+        }
+
+        input.player-name:focus {
+            border-color: #fff;
+        }
+
+        /* Big Score (Racks/Games Won) - 這裡現在是較小的局數 */
+        .score-section {
+            text-align: center;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        .score-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .big-score {
+            font-size: 2.5rem; /* 局數改小 */
+            font-weight: bold;
+            line-height: 1;
+            margin: 10px 0;
+            font-variant-numeric: tabular-nums;
+            color: #ccc; /* 顏色稍微調暗一點 */
+        }
+
+        /* Controls */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 0;
+            font-size: 1.5rem;
+            font-weight: bold;
+            transition: all 0.2s;
+            color: white;
+            display: flex;
+            align-items: center; /* 修復：確保按鈕內容居中 */
+            justify-content: center; /* 修復：確保按鈕內容居中 */
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .btn-add {
+            flex: 2;
+        }
+        
+        /* 為不同玩家設定按鈕顏色 */
+        #p1-card .btn-add { background-color: var(--accent-green); }
+        #p2-card .btn-add { background-color: var(--accent-red); }
+
+        .btn-sub {
+            background-color: #444;
+            flex: 1;
+        }
+
+        .btn-sub:hover {
+            background-color: #666;
+        }
+
+        /* Secondary Score (Small Points / Balls) -> 現在變成主要大字 */
+        .sub-score-area {
+            margin-top: auto;
+            padding: 20px 10px; /* 增加高度 */
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            /* 增加陰影讓它更立體 */
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* P1 小分背景 - 深綠色 */
+        #p1-card .sub-score-area {
+            background-color: #145A32; 
+            border: 2px solid #27ae60;
+        }
+
+        /* P2 小分背景 - 深紅色 */
+        #p2-card .sub-score-area {
+            background-color: #7B241C;
+            border: 2px solid #c0392b;
+        }
+
+        .sub-score-val {
+            font-size: 5.5rem; /* 小分改超大 */
+            font-weight: bold;
+            color: #ffffff; /* 亮白色 */
+            line-height: 1;
+            margin: 0 10px;
+            /* 增加文字陰影，讓數字在深色背景上更清晰 */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .btn-small {
+            padding: 15px 20px; /* 按鈕也稍微加大比較好按 */
+            font-size: 1.5rem;
+            font-weight: bold;
+            min-width: 60px; /* 確保按鈕寬度 */
+            /* 讓按鈕在深色背景上也稍微突出一點 */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        /* Global Controls */
+        .global-controls {
+            margin-top: 30px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .btn-reset {
+            background-color: #7f8c8d;
+            padding: 12px 40px;
+            font-size: 1rem;
+            text-transform: uppercase;
+            color: white;
+        }
+        
+        .btn-reset:hover {
+            background-color: #95a5a6;
+        }
+
+        /* 下一局按鈕樣式 */
+        .btn-new-rack {
+            background-color: #d35400; /* 橘色 */
+            padding: 12px 40px;
+            font-size: 1rem;
+            text-transform: uppercase;
+            color: white;
+        }
+
+        .btn-new-rack:hover {
+            background-color: #e67e22;
+        }
+
+        /* 按鈕確認狀態 (紅色閃爍) */
+        button.confirming {
+            background-color: #e74c3c !important;
+            color: #fff !important;
+            animation: pulse 0.5s infinite alternate;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .player-card {
+                min-width: 100%;
+            }
+            .big-score {
+                font-size: 4rem;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
+            .global-controls {
+                flex-direction: column;
+                width: 100%;
+            }
+            .global-controls button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎱 雙人撞球計分板</h1>
+
+    <div class="scoreboard">
+        <!-- Player 1 -->
+        <div class="player-card" id="p1-card">
+            <input type="text" value="張勇富" class="player-name">
+            
+            <div class="score-section">
+                <div class="score-label">勝局數 (Racks)</div>
+                <div class="big-score" id="p1-main-score">0</div>
+                <div class="btn-group">
+                    <button class="btn-sub" onclick="updateScore('p1', -1, 'main')">-</button>
+                    <button class="btn-add" onclick="updateScore('p1', 1, 'main')">+</button>
+                </div>
+            </div>
+
+            <div class="sub-score-area">
+                <button class="btn-small btn-sub" onclick="updateScore('p1', -1, 'sub')">-</button>
+                <div style="text-align: center;">
+                    <span class="score-label">小分</span><br>
+                    <span class="sub-score-val" id="p1-sub-score">0</span>
+                </div>
+                <button class="btn-small btn-add" onclick="updateScore('p1', 1, 'sub')">+</button>
+            </div>
+        </div>
+
+        <!-- Player 2 -->
+        <div class="player-card" id="p2-card">
+            <input type="text" value="李順英" class="player-name">
+            
+            <div class="score-section">
+                <div class="score-label">勝局數 (Racks)</div>
+                <div class="big-score" id="p2-main-score">0</div>
+                <div class="btn-group">
+                    <button class="btn-sub" onclick="updateScore('p2', -1, 'main')">-</button>
+                    <button class="btn-add" onclick="updateScore('p2', 1, 'main')">+</button>
+                </div>
+            </div>
+
+            <div class="sub-score-area">
+                <button class="btn-small btn-sub" onclick="updateScore('p2', -1, 'sub')">-</button>
+                <div style="text-align: center;">
+                    <span class="score-label">小分</span><br>
+                    <span class="sub-score-val" id="p2-sub-score">0</span>
+                </div>
+                <button class="btn-small btn-add" onclick="updateScore('p2', 1, 'sub')">+</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="global-controls">
+        <!-- 這裡加上了 this 參數來控制按鈕狀態 -->
+        <button class="btn-new-rack" onclick="resetSubScores(this)">下一局 (歸零小分)</button>
+        <button class="btn-reset" onclick="resetGame(this)">重置所有分數</button>
+    </div>
+
+    <script>
+        // Initial State
+        const scores = {
+            p1: { main: 0, sub: 0 },
+            p2: { main: 0, sub: 0 }
+        };
+
+        const players = ['p1', 'p2'];
+
+        /**
+         * Update Score Function
+         */
+        function updateScore(player, change, type) {
+            // Update internal state
+            scores[player][type] += change;
+
+            // Prevent negative scores
+            if (scores[player][type] < 0) {
+                scores[player][type] = 0;
+            }
+
+            // Update DOM
+            const elementId = `${player}-${type}-score`;
+            const element = document.getElementById(elementId);
+            
+            // Add simple animation class
+            element.style.transform = "scale(1.2)";
+            element.style.color = change > 0 ? "#2ecc71" : "#c0392b";
+            
+            setTimeout(() => {
+                element.style.transform = "scale(1)";
+                element.style.color = ""; // Reset color
+            }, 150);
+
+            element.innerText = scores[player][type];
+        }
+
+        // --- 按鈕確認機制邏輯 ---
+        let confirmTimer = null;
+
+        function handleResetRequest(btnElement, actionCallback, confirmText) {
+            if (btnElement.dataset.confirming === "true") {
+                // 已經在確認狀態，執行動作
+                actionCallback();
+                resetButtonState(btnElement);
+            } else {
+                // 第一次點擊，進入確認狀態
+                // 先重置其他可能正在確認的按鈕
+                document.querySelectorAll('.confirming').forEach(el => resetButtonState(el));
+                
+                // 儲存原始文字
+                const originalText = btnElement.innerText;
+                btnElement.dataset.originalText = originalText;
+                
+                // 改變狀態
+                btnElement.dataset.confirming = "true";
+                btnElement.innerText = confirmText || "確定嗎？";
+                btnElement.classList.add('confirming');
+                
+                // 3秒後自動恢復
+                confirmTimer = setTimeout(() => {
+                    resetButtonState(btnElement);
+                }, 3000);
+            }
+        }
+
+        function resetButtonState(btnElement) {
+            if (btnElement.dataset.confirming === "true") {
+                btnElement.innerText = btnElement.dataset.originalText;
+                btnElement.dataset.confirming = "false";
+                btnElement.classList.remove('confirming');
+                if(confirmTimer) clearTimeout(confirmTimer);
+            }
+        }
+
+        /**
+         * 重置小分 (開始新的一局)
+         */
+        function resetSubScores(btn) {
+            handleResetRequest(btn, () => {
+                players.forEach(player => {
+                    scores[player].sub = 0;
+                    document.getElementById(`${player}-sub-score`).innerText = 0;
+                });
+            }, "確定歸零小分？");
+        }
+
+        /**
+         * 重置整場比賽
+         */
+        function resetGame(btn) {
+            handleResetRequest(btn, () => {
+                players.forEach(player => {
+                    scores[player].main = 0;
+                    scores[player].sub = 0;
+                    
+                    // DOM Reset
+                    document.getElementById(`${player}-main-score`).innerText = 0;
+                    document.getElementById(`${player}-sub-score`).innerText = 0;
+                });
+            }, "確定重置比賽？");
+        }
+    </script>
+</body>
+</html>

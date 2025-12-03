@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四人撞球比賽計分器 (含計時及記錄)</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --panel-bg: #2d2d2d;
+            --accent-green: #27ae60;
+            --accent-red: #c0392b;
+            --accent-blue: #2980b9; 
+            --accent-yellow: #f39c12; 
+            --text-main: #ffffff;
+            --text-dim: #aaaaaa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 3px solid var(--accent-green);
+            padding-bottom: 5px;
+            text-align: center;
+        }
+
+        /* Status Display */
+        #match-status-display {
+            background-color: #333;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            width: 90%;
+            max-width: 800px;
+            color: #eee;
+            border: 1px solid #555;
+        }
+        #timer-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--accent-yellow);
+            margin-top: 5px;
+        }
+        .status-text {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        /* Scoreboard Container */
+        .scoreboard {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            max-width: 1000px; 
+            gap: 20px;
+            opacity: 0.5; /* 初始未開始比賽時變暗 */
+            transition: opacity 0.5s;
+        }
+        .scoreboard.active {
+             opacity: 1;
+        }
+
+        /* Player Panel */
+        .player-card {
+            background-color: var(--panel-bg);
+            border-radius: 15px;
+            padding: 20px;
+            flex: 1 1 300px; 
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            border: 2px solid transparent;
+            transition: border 0.3s, transform 0.2s;
+            position: relative;
+        }
+
+        /* 各玩家的強調色 */
+        #p1-card:focus-within { border-color: var(--accent-green); }
+        #p2-card:focus-within { border-color: var(--accent-red); }
+        #p3-card:focus-within { border-color: var(--accent-blue); }
+        #p4-card:focus-within { border-color: var(--accent-yellow); }
+
+        /* Name Input */
+        input.player-name {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #555;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            text-align: center;
+            width: 90%;
+            margin-bottom: 15px;
+            outline: none;
+            padding: 5px;
+            font-weight: bold;
+        }
+
+        input.player-name:focus {
+            border-color: #fff;
+        }
+
+        /* Big Score (Racks/Games Won) - 這裡現在是較小的局數 */
+        .score-section {
+            text-align: center;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        .score-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .big-score {
+            font-size: 2.5rem; 
+            font-weight: bold;
+            line-height: 1;
+            margin: 10px 0;
+            font-variant-numeric: tabular-nums;
+            color: #ccc; 
+        }
+
+        /* Controls */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 0; 
+            font-size: 1.5rem;
+            font-weight: bold;
+            transition: transform 0.1s, opacity 0.2s, background-color 0.2s;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap; /* 防止按鈕文字換行 */
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .btn-add {
+            flex: 2;
+        }
+        
+        /* 為不同玩家設定按鈕顏色 */
+        #p1-card .btn-add { background-color: var(--accent-green); }
+        #p2-card .btn-add { background-color: var(--accent-red); }
+        #p3-card .btn-add { background-color: var(--accent-blue); }
+        #p4-card .btn-add { background-color: var(--accent-yellow); color: #222; } 
+
+        .btn-sub {
+            background-color: #444;
+            flex: 1;
+        }
+
+        .btn-sub:hover {
+            background-color: #666;
+        }
+
+        /* Secondary Score (Small Points / Balls) -> 現在變成主要大字 */
+        .sub-score-area {
+            margin-top: auto; 
+            padding: 20px 10px; 
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* P1 小分背景 - 深綠色 */
+        #p1-card .sub-score-area {
+            background-color: #145A32; 
+            border: 2px solid var(--accent-green);
+        }
+
+        /* P2 小分背景 - 深紅色 */
+        #p2-card .sub-score-area {
+            background-color: #7B241C;
+            border: 2px solid var(--accent-red);
+        }
+        
+        /* P3 小分背景 - 深藍色 */
+        #p3-card .sub-score-area {
+            background-color: #1A3656;
+            border: 2px solid var(--accent-blue);
+        }
+
+        /* P4 小分背景 - 深黃/橘色 */
+        #p4-card .sub-score-area {
+            background-color: #8C5B00;
+            border: 2px solid var(--accent-yellow);
+        }
+
+        .sub-score-val {
+            font-size: 5.5rem; 
+            font-weight: bold;
+            color: #ffffff; 
+            line-height: 1;
+            margin: 0 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .btn-small {
+            padding: 15px 20px; 
+            font-size: 1.5rem;
+            font-weight: bold;
+            min-width: 60px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        /* Global Controls */
+        .global-controls {
+            margin-top: 30px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* Reset & Download Buttons */
+        .btn-reset, .btn-download {
+            background-color: #7f8c8d;
+            padding: 12px 20px;
+            font-size: 1rem;
+            text-transform: uppercase;
+            color: white;
+            flex-grow: 1;
+            min-width: 120px;
+        }
+        
+        .btn-reset:hover { background-color: #95a5a6; }
+        .btn-download { background-color: #34495e; }
+        .btn-download:hover { background-color: #4a637d; }
+
+        /* Match Control Button Styles */
+        #btn-start-match, #btn-end-rack {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            flex-grow: 2;
+            min-width: 180px;
+        }
+        #btn-start-match { background-color: var(--accent-green); }
+        #btn-start-match:hover { background-color: #2ecc71; }
+        #btn-end-rack { background-color: #e67e22; }
+        #btn-end-rack:hover { background-color: #f39c12; }
+
+        /* 按鈕確認狀態 (紅色閃爍) */
+        button.confirming {
+            background-color: #e74c3c !important;
+            color: #fff !important;
+            animation: pulse 0.5s infinite alternate;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .player-card {
+                min-width: 100%; 
+            }
+            .big-score {
+                font-size: 2rem;
+            }
+            .sub-score-val {
+                font-size: 4rem;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
+            .global-controls {
+                flex-direction: column;
+                width: 100%;
+            }
+            .global-controls button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎱 四人撞球計分板</h1>
+
+    <div id="match-status-display">
+        <div class="status-text" id="status-message">點擊「開始比賽」以啟用計分和計時功能。</div>
+        <div id="timer-display">00:00:00</div>
+    </div>
+
+    <div class="global-controls">
+        <button id="btn-start-match" onclick="startMatch()">開始比賽</button>
+        <!-- 預設隱藏 -->
+        <button id="btn-end-rack" style="display:none;" onclick="endRack(this)">結束一局 (記錄成績)</button>
+        <button class="btn-reset" onclick="resetGame(this)">重置所有分數</button>
+        <button class="btn-download" onclick="downloadMatchLog()">下載記錄</button>
+    </div>
+
+    <div class="scoreboard" id="scoreboard-container">
+        <!-- Player 1 -->
+        <div class="player-card" id="p1-card">
+            <input type="text" value="張勇富" class="player-name" id="p1-name">
+            
+            <div class="score-section">
+                <div class="score-label">勝局數 (Racks)</div>
+                <div class="big-score" id="p1-main-score">0</div>
+                <div class="btn-group">
+                    <button class="btn-sub" onclick="updateScore('p1', -1, 'main')" disabled>-</button>
+                    <button class="btn-add" onclick="updateScore('p1', 1, 'main')" disabled>+</button>
+                </div>
+            </div>
+
+            <div class="sub-score-area">
+                <button class="btn-small btn-sub" onclick="updateScore('p1', -1, 'sub')" disabled>-</button>
+                <div style="text-align: center;">
+                    <span class="score-label">小分</span><br>
+                    <span class="sub-score-val" id="p1-sub-score">0</span>
+                </div>
+                <button class="btn-small btn-add" onclick="updateScore('p1', 1, 'sub')" disabled>+</button>
+            </div>
+        </div>
+
+        <!-- Player 2 -->
+        <div class="player-card" id="p2-card">
+            <input type="text" value="李順英" class="player-name" id="p2-name">
+            
+            <div class="score-section">
+                <div class="score-label">勝局數 (Racks)</div>
+                <div class="big-score" id="p2-main-score">0</div>
+                <div class="btn-group">
+                    <button class="btn-sub" onclick="updateScore('p2', -1, 'main')" disabled>-</button>
+                    <button class="btn-add" onclick="updateScore('p2', 1, 'main')" disabled>+</button>
+                </div>
+            </div>
+
+            <div class="sub-score-area">
+                <button class="btn-small btn-sub" onclick="updateScore('p2', -1, 'sub')" disabled>-</button>
+                <div style="text-align: center;">
+                    <span class="score-label">小分</span><br>
+                    <span class="sub-score-val" id="p2-sub-score">0</span>
+                </div>
+                <button class="btn-small btn-add" onclick="updateScore('p2', 1, 'sub')" disabled>+</button>
+            </div>
+        </div>
+
+        <!-- Player 3 -->
+        <div class="player-card" id="p3-card">
+            <input type="text" value="張義" class="player-name" id="p3-name">
+            
+            <div class="score-section">
+                <div class="score-label">勝局數 (Racks)</div>
+                <div class="big-score" id="p3-main-score">0</div>
+                <div class="btn-group">
+                    <button class="btn-sub" onclick="updateScore('p3', -1, 'main')" disabled>-</button>
+                    <button class="btn-add" onclick="updateScore('p3', 1, 'main')" disabled>+</button>
+                </div>
+            </div>
+
+            <div class="sub-score-area">
+                <button class="btn-small btn-sub" onclick="updateScore('p3', -1, 'sub')" disabled>-</button>
+                <div style="text-align: center;">
+                    <span class="score-label">小分</span><br>
+                    <span class="sub-score-val" id="p3-sub-score">0</span>
+                </div>
+                <button class="btn-small btn-add" onclick="updateScore('p3', 1, 'sub')" disabled>+</button>
+            </div>
+        </div>
+
+        <!-- Player 4 -->
+        <div class="player-card" id="p4-card">
+            <input type="text" value="張平" class="player-name" id="p4-name">
+            
+            <div class="score-section">
+                <div class="score-label">勝局數 (Racks)</div>
+                <div class="big-score" id="p4-main-score">0</div>
+                <div class="btn-group">
+                    <button class="btn-sub" onclick="updateScore('p4', -1, 'main')" disabled>-</button>
+                    <button class="btn-add" onclick="updateScore('p4', 1, 'main')" disabled>+</button>
+                </div>
+            </div>
+
+            <div class="sub-score-area">
+                <button class="btn-small btn-sub" onclick="updateScore('p4', -1, 'sub')" disabled>-</button>
+                <div style="text-align: center;">
+                    <span class="score-label">小分</span><br>
+                    <span class="sub-score-val" id="p4-sub-score">0</span>
+                </div>
+                <button class="btn-small btn-add" onclick="updateScore('p4', 1, 'sub')" disabled>+</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initial State and Match Variables
+        const players = ['p1', 'p2', 'p3', 'p4'];
+        const scores = {
+            p1: { main: 0, sub: 0, name: '張勇富' },
+            p2: { main: 0, sub: 0, name: '李順英' },
+            p3: { main: 0, sub: 0, name: '張義' },
+            p4: { main: 0, sub: 0, name: '張平' }
+        };
+        let matchHistory = [];
+        let matchStartTime = null;
+        let rackStartTime = null;
+        let isMatchActive = false;
+        let timerInterval = null;
+        let currentRack = 0;
+
+        // DOM Elements
+        const scoreboardContainer = document.getElementById('scoreboard-container');
+        const startBtn = document.getElementById('btn-start-match');
+        const endRackBtn = document.getElementById('btn-end-rack');
+        const statusMsg = document.getElementById('status-message');
+        const timerDisplay = document.getElementById('timer-display');
+        const allScoreButtons = document.querySelectorAll('.player-card button');
+        const allNameInputs = document.querySelectorAll('.player-name');
+
+        /**
+         * 格式化時間 (從毫秒轉為 H:MM:SS)
+         */
+        function formatDuration(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            const pad = (num) => num.toString().padStart(2, '0');
+
+            return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+
+        /**
+         * 更新計分器的按鈕禁用狀態
+         */
+        function setScoreboardActive(active) {
+            scoreboardContainer.classList.toggle('active', active);
+            allScoreButtons.forEach(btn => {
+                btn.disabled = !active;
+            });
+            allNameInputs.forEach(input => {
+                input.readOnly = active; // 比賽開始後，名字不能修改
+            });
+        }
+
+        /**
+         * 更新比賽時間顯示
+         */
+        function updateTimerDisplay() {
+            if (!rackStartTime) return;
+            const elapsed = Date.now() - rackStartTime;
+            timerDisplay.innerText = formatDuration(elapsed);
+            statusMsg.innerHTML = `比賽中... 第 **${currentRack}** 局已進行：`;
+        }
+
+        /**
+         * 開始比賽
+         */
+        function startMatch() {
+            if (isMatchActive) return;
+
+            // 讀取玩家名稱
+            players.forEach(p => {
+                scores[p].name = document.getElementById(`${p}-name`).value || `玩家 ${p.slice(-1)}`;
+            });
+
+            matchStartTime = Date.now();
+            rackStartTime = matchStartTime;
+            isMatchActive = true;
+            currentRack = 1;
+
+            startBtn.style.display = 'none';
+            endRackBtn.style.display = 'block';
+            setScoreboardActive(true);
+            
+            // 開始計時器
+            timerInterval = setInterval(updateTimerDisplay, 1000);
+            updateTimerDisplay(); // 立即更新一次
+        }
+
+        /**
+         * 更新分數 (與上一個版本相同，但不限制負數)
+         */
+        function updateScore(player, change, type) {
+            // Update internal state
+            scores[player][type] += change;
+
+            // Update DOM
+            const elementId = `${player}-${type}-score`;
+            const element = document.getElementById(elementId);
+            
+            // Add simple animation class and coloring for feedback
+            element.style.transform = "scale(1.2)";
+            if (scores[player][type] < 0) {
+                 element.style.color = "#e74c3c"; // 負分紅色
+            } else {
+                 element.style.color = change > 0 ? "#2ecc71" : "#c0392b"; // 正分綠色/減分紅色
+            }
+            
+            setTimeout(() => {
+                element.style.transform = "scale(1)";
+                element.style.color = ""; // Reset color
+            }, 150);
+
+            element.innerText = scores[player][type];
+        }
+
+        /**
+         * 結束一局，計算成績並記錄
+         */
+        function handleEndRack() {
+            if (!isMatchActive) return;
+
+            const rackEndTime = Date.now();
+            const duration = rackEndTime - rackStartTime;
+            const durationFormatted = formatDuration(duration);
+
+            // 1. 找出小分最高的玩家
+            let maxScore = -Infinity;
+            let winnerCandidates = [];
+            
+            players.forEach(player => {
+                const subScore = scores[player].sub;
+                if (subScore > maxScore) {
+                    maxScore = subScore;
+                    winnerCandidates = [player];
+                } else if (subScore === maxScore) {
+                    winnerCandidates.push(player);
+                }
+            });
+
+            let rackWinner = null;
+            let logMessage = `第 ${currentRack} 局結束，歷時 ${durationFormatted}。`;
+            
+            if (maxScore > 0 && winnerCandidates.length === 1) {
+                // 有明確贏家且分數大於0，自動加分
+                rackWinner = winnerCandidates[0];
+                scores[rackWinner].main += 1;
+                document.getElementById(`${rackWinner}-main-score`).innerText = scores[rackWinner].main;
+                logMessage += ` 贏家: ${scores[rackWinner].name} (${maxScore} 分).`;
+            } else if (maxScore <= 0) {
+                logMessage += ` 無人得分 (最高分 0 或負分).`;
+            } else { // winnerCandidates.length > 1
+                 logMessage += ` 平手 (最高分 ${maxScore} 分, 平手玩家: ${winnerCandidates.map(p => scores[p].name).join('、')})。勝局數請手動調整。`;
+            }
+
+            // 2. 記錄本局成績
+            const rackLog = {
+                rack: currentRack,
+                startTime: new Date(rackStartTime).toLocaleString('zh-TW'),
+                endTime: new Date(rackEndTime).toLocaleString('zh-TW'),
+                duration: durationFormatted,
+                winner: rackWinner ? scores[rackWinner].name : '無明確贏家',
+                p1_name: scores.p1.name, p1_score: scores.p1.sub,
+                p2_name: scores.p2.name, p2_score: scores.p2.sub,
+                p3_name: scores.p3.name, p3_score: scores.p3.sub,
+                p4_name: scores.p4.name, p4_score: scores.p4.sub,
+                message: logMessage
+            };
+            matchHistory.push(rackLog);
+
+            // 3. 重置小分並開始下一局計時
+            players.forEach(player => {
+                scores[player].sub = 0;
+                document.getElementById(`${player}-sub-score`).innerText = 0;
+            });
+
+            currentRack++;
+            rackStartTime = Date.now(); // 開始下一局計時
+            updateTimerDisplay(); // 更新顯示
+
+            // 簡單提示
+            statusMsg.innerHTML = logMessage + `<br>開始第 **${currentRack}** 局計時...`;
+            console.log(logMessage, rackLog);
+        }
+
+        /**
+         * 結束一局按鈕的二次確認
+         */
+        function endRack(btn) {
+            handleResetRequest(btn, handleEndRack, "確定結束本局？");
+        }
+
+
+        // --- 按鈕確認機制邏輯 (雙擊確認) ---
+        let confirmTimer = null;
+
+        function handleResetRequest(btnElement, actionCallback, confirmText) {
+            if (btnElement.dataset.confirming === "true") {
+                actionCallback();
+                resetButtonState(btnElement);
+            } else {
+                document.querySelectorAll('.confirming').forEach(el => resetButtonState(el));
+                
+                const originalText = btnElement.innerText;
+                btnElement.dataset.originalText = originalText;
+                
+                btnElement.dataset.confirming = "true";
+                btnElement.innerText = confirmText || "確定嗎？";
+                btnElement.classList.add('confirming');
+                
+                confirmTimer = setTimeout(() => {
+                    resetButtonState(btnElement);
+                }, 3000);
+            }
+        }
+
+        function resetButtonState(btnElement) {
+            if (btnElement && btnElement.dataset.confirming === "true") {
+                btnElement.innerText = btnElement.dataset.originalText;
+                btnElement.dataset.confirming = "false";
+                btnElement.classList.remove('confirming');
+                if(confirmTimer) clearTimeout(confirmTimer);
+                confirmTimer = null;
+            }
+        }
+
+        /**
+         * 重置整場比賽
+         */
+        function handleResetGame() {
+            if (timerInterval) clearInterval(timerInterval);
+            isMatchActive = false;
+            
+            // 重置分數
+            players.forEach(player => {
+                scores[player].main = 0;
+                scores[player].sub = 0;
+                document.getElementById(`${player}-main-score`).innerText = 0;
+                document.getElementById(`${player}-sub-score`).innerText = 0;
+            });
+            
+            // 重置計時與記錄
+            matchStartTime = null;
+            rackStartTime = null;
+            currentRack = 0;
+            matchHistory = [];
+
+            // 重置 UI
+            timerDisplay.innerText = "00:00:00";
+            statusMsg.innerHTML = "比賽已重置。點擊「開始比賽」以開始新局。";
+            startBtn.style.display = 'block';
+            endRackBtn.style.display = 'none';
+            setScoreboardActive(false);
+
+            console.log("比賽已重置。");
+        }
+
+        function resetGame(btn) {
+             handleResetRequest(btn, handleResetGame, "確定重置比賽？");
+        }
+
+
+        /**
+         * 下載比賽記錄
+         */
+        function downloadMatchLog() {
+            if (matchHistory.length === 0) {
+                alert("目前沒有任何已完成的局數記錄可以下載。");
+                return;
+            }
+
+            // 總結記錄
+            const totalDuration = Date.now() - matchStartTime;
+            const finalSummary = [
+                ["--- 比賽總結 ---"],
+                ["總開始時間:", new Date(matchStartTime).toLocaleString('zh-TW')],
+                ["總結束時間:", new Date().toLocaleString('zh-TW')],
+                ["總耗時:", formatDuration(totalDuration)],
+                ["總局數:", currentRack - 1],
+                ["最終成績", scores.p1.name, scores.p2.name, scores.p3.name, scores.p4.name],
+                ["勝局數 (Racks)", scores.p1.main, scores.p2.main, scores.p3.main, scores.p4.main],
+                [],
+                ["--- 詳細局數記錄 ---"]
+            ];
+
+            // 準備 CSV 資料
+            const header = [
+                "局數", "開始時間", "結束時間", "歷時", "勝者",
+                `P1 (${scores.p1.name}) 小分`,
+                `P2 (${scores.p2.name}) 小分`,
+                `P3 (${scores.p3.name}) 小分`,
+                `P4 (${scores.p4.name}) 小分`,
+                "備註"
+            ];
+
+            const csvRows = matchHistory.map(log => [
+                log.rack, 
+                log.startTime, 
+                log.endTime, 
+                log.duration, 
+                log.winner, 
+                log.p1_score, 
+                log.p2_score, 
+                log.p3_score, 
+                log.p4_score, 
+                log.message.replace(/,/g, '') // 移除備註中的逗號以避免破壞 CSV 格式
+            ]);
+
+            // 組合成完整的 CSV 內容
+            let csvContent = finalSummary.map(e => e.join(',')).join('\n') + '\n';
+            csvContent += header.join(',') + '\n';
+            csvContent += csvRows.map(row => row.join(',')).join('\n');
+
+
+            // 建立下載連結
+            const blob = new Blob(["\ufeff", csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `撞球比賽記錄_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 初始設定按鈕禁用狀態
+        setScoreboardActive(false);
+
+    </script>
+</body>
+</html>
